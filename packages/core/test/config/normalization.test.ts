@@ -802,6 +802,38 @@ describe("ConfigNormalize", () => {
     expect(result.encoded.providers).not.toHaveProperty(["untouched", "compatibility"])
   })
 
+  test("infers the anthropic cache format for Claude models on OpenAI-compatible routes", () => {
+    const result = normalized({
+      provider: {
+        gateway: {
+          npm: "@ai-sdk/openai-compatible",
+          options: { baseURL: "https://proxy.test/v1" },
+          models: {
+            "claude-sonnet-5-5": { id: "claude-sonnet-5-5" },
+            "custom-anthropic": { id: "custom-anthropic" },
+            "gpt-x": { id: "gpt-x" },
+            "claude-haiku": {},
+          },
+        },
+        anthropic: {
+          npm: "@ai-sdk/anthropic",
+          models: { "claude-sonnet-5-5": { id: "claude-sonnet-5-5" } },
+        },
+      },
+    })
+    expect(result.encoded.providers).toMatchObject({
+      gateway: {
+        models: {
+          "claude-sonnet-5-5": { compatibility: { cacheFormat: "anthropic" } },
+          "custom-anthropic": { compatibility: { cacheFormat: "anthropic" } },
+          "claude-haiku": { compatibility: { cacheFormat: "anthropic" } },
+        },
+      },
+    })
+    expect(result.encoded.providers).not.toHaveProperty(["gateway", "models", "gpt-x", "compatibility"])
+    expect(result.encoded.providers).not.toHaveProperty(["anthropic", "models", "claude-sonnet-5-5", "compatibility"])
+  })
+
   test("invalid legacy provider overlays skip only that provider", () => {
     const result = normalized({
       provider: {

@@ -400,6 +400,10 @@ V1 `npm` becomes `package`, and AI SDK packages receive the `aisdk:` prefix. `ap
 `options` are separated into `settings`, `headers`, and `body` according to their request role. `options.setCacheKey`
 becomes `compatibility.supportsPromptCacheKey` on the provider. See [Providers](/providers).
 
+`@ai-sdk/openai-compatible` providers keep prompt caching for models with `claude` or `anthropic` in their id — the
+migration sets `compatibility.cacheFormat` to `anthropic` on those models. V1 placed cache markers on that route by
+model id, and V2 only places them when the model declares a format.
+
 V2 consolidated two legacy provider namespaces:
 
 | V1 provider ID             | Canonical V2 provider ID |

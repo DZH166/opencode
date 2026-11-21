@@ -134,7 +134,9 @@ function migrateStandardProvider(info: ConfigProviderV1.Info) {
     body: info.options && options.body,
     models:
       info.models &&
-      Object.fromEntries(Object.entries(info.models).map(([name, model]) => [name, migrateModel(model, info.npm)])),
+      Object.fromEntries(
+        Object.entries(info.models).map(([name, model]) => [name, migrateModel(model, info.npm, name)]),
+      ),
   }
 }
 
@@ -186,7 +188,7 @@ export function providerID(input: string) {
   return input
 }
 
-function migrateModel(info: typeof ConfigProviderV1.Model.Type, npm: string | undefined) {
+function migrateModel(info: typeof ConfigProviderV1.Model.Type, npm: string | undefined, key: string) {
   const disableThinkingBlockBinding =
     info.options?.thinking?.blockBinding === false || info.options?.reasoningConfig?.blockBinding === false
   const options = info.options && { ...info.options }
@@ -213,6 +215,13 @@ function migrateModel(info: typeof ConfigProviderV1.Model.Type, npm: string | un
   const migrated = options && split(options)
   const settings = migrated?.settings
   const compatibility = Model.compatibility(info.interleaved)
+  // V1 placed Anthropic cache markers on OpenAI-compatible routes whenever the model or API id
+  // contained "claude" or "anthropic". V2 only marks routes that respect inline hints unless the
+  // model declares a cache format, so infer it and keep migrated configs caching like V1 did.
+  const cacheFormat =
+    compatible && [key, info.id].some((id) => id !== undefined && (id.includes("claude") || id.includes("anthropic")))
+      ? { cacheFormat: "anthropic" as const }
+      : undefined
   const costs = info.cost && [
     {
       input: info.cost.input,
@@ -238,9 +247,14 @@ function migrateModel(info: typeof ConfigProviderV1.Model.Type, npm: string | un
     modelID: info.id,
     family: info.family,
     name: info.name,
-    compatibility: disableThinkingBlockBinding
-      ? { ...compatibility, supportsThinkingBlockBinding: false }
-      : compatibility,
+    compatibility:
+      cacheFormat === undefined && !disableThinkingBlockBinding
+        ? compatibility
+        : {
+            ...compatibility,
+            ...cacheFormat,
+            ...(disableThinkingBlockBinding ? { supportsThinkingBlockBinding: false } : {}),
+          },
     package: info.provider?.npm ? packageSpecifier(info.provider.npm) : undefined,
     settings: info.provider?.api ? { ...settings, baseURL: info.provider.api } : settings,
     capabilities,
